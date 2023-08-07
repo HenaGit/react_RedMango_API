@@ -34,7 +34,8 @@ namespace RedMango_API.Controllers
                     .OrderByDescending(u => u.OrderHeaderId);
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    _response.Result = orderHeaders.Where(u => u.ApplicationUserId == userId);
+                    orderHeaders= orderHeaders.Where(u => u.ApplicationUserId == userId);
+                    //_response.Result = orderHeaders.Where(u => u.ApplicationUserId == userId);
                 }
                 if (!string.IsNullOrEmpty(searchString))
                 {
