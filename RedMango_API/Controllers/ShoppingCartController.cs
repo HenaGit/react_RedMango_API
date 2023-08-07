@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RedMango_API.Data;
 using RedMango_API.Models;
+using System.Net;
 
 namespace RedMango_API.Controllers
 {
@@ -30,6 +32,71 @@ namespace RedMango_API.Controllers
             // when a user adds a new item to an existing shopping cart (basically user has other items in cart)
             // when a user updates an existing item count
             // when a user removes an existing item
+            ShoppingCart shoppingCart = _db.ShoppingCarts.Include(u => u.CartItems).FirstOrDefault(u => u.UserId == userId);
+            MenuItem menuItem = _db.MenuItems.FirstOrDefault(u => u.Id == menuItemId);
+            if (menuItem == null)
+            {
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                return BadRequest(_response);
+            }
+            if (shoppingCart == null && updateQuantityBy > 0)
+            {
+                //create a shopping cart & add cart item
+
+                ShoppingCart newCart = new() { UserId = userId };
+                _db.ShoppingCarts.Add(newCart);
+                _db.SaveChanges();
+
+                CartItem newCartItem = new()
+                {
+                    MenuItemId = menuItemId,
+                    Quantity = updateQuantityBy,
+                    ShoppingCartId = newCart.Id,
+                    MenuItem = null
+                };
+                _db.CartItems.Add(newCartItem);
+                _db.SaveChanges();
+            }
+            else
+            {
+                //shopping cart exists
+                CartItem cartItemInCart = shoppingCart.CartItems.FirstOrDefault(u => u.MenuItemId == menuItemId);
+                if (cartItemInCart == null)
+                {
+                    //item does not exist in current cart
+                    CartItem newCartItem = new()
+                    {
+                        MenuItemId = menuItemId,
+                        Quantity = updateQuantityBy,
+                        ShoppingCartId = shoppingCart.Id,
+                        MenuItem = null
+                    };
+                    _db.CartItems.Add(newCartItem);
+                    _db.SaveChanges();
+                }
+                else
+                {
+                    //item already exist in the cart and we have to update quantity
+                    int newQuantity = cartItemInCart.Quantity + updateQuantityBy;
+                    if (updateQuantityBy == 0 || newQuantity <= 0)
+                    {
+                        //remove cart item from cart and if it is the only item then remove cart
+                        _db.CartItems.Remove(cartItemInCart);
+                        if (shoppingCart.CartItems.Count() == 1)
+                        {
+                            _db.ShoppingCarts.Remove(shoppingCart);
+                        }
+                        _db.SaveChanges();
+                    }
+                    else
+                    {
+                        cartItemInCart.Quantity = newQuantity;
+                        _db.SaveChanges();
+                    }
+                }
+            }
+            return _response;
         }
         }
     }
